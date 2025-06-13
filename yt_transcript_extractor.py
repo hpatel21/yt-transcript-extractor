@@ -34,6 +34,18 @@ class YouTubeTranscriptExtractor:
         """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
+        
+        # Set up session with headers to avoid blocking
+        try:
+            from youtube_transcript_api._api import YouTubeTranscriptApi
+            # Try to set user agent if possible
+            import requests
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            })
+        except:
+            pass  # If this fails, continue without custom headers
     
     def extract_video_id(self, url):
         """
@@ -94,34 +106,102 @@ class YouTubeTranscriptExtractor:
         Returns:
             str: Transcript text or None if unavailable
         """
+        import time
+        import random
+        
         try:
-            # Try to get transcript in preferred languages
+            print(f"  Attempting to fetch transcript for video: {video_id}")
+            
+            # Add a small random delay to avoid rate limiting
+            time.sleep(random.uniform(1, 3))
+            
+            # Try the simple approach first with better error handling
+            try:
+                print("  Trying direct transcript fetch first...")
+                transcript_data = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US', 'en-GB'])
+                
+                full_text = []
+                for entry in transcript_data:
+                    if isinstance(entry, dict) and 'text' in entry:
+                        text = entry['text'].strip()
+                        if text:
+                            full_text.append(text)
+                
+                result = ' '.join(full_text)
+                if result:
+                    print(f"  Direct fetch successful ({len(result)} characters)")
+                    return result
+                    
+            except Exception as direct_e:
+                print(f"  Direct fetch failed: {str(direct_e)}")
+            
+            # If direct approach fails, try the detailed approach
+            print("  Trying detailed transcript listing...")
             transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
             
-            # Try to get manually created transcript first
-            try:
-                transcript = transcript_list.find_manually_created_transcript(['en'])
-            except:
-                # Fall back to auto-generated transcript
-                try:
-                    transcript = transcript_list.find_generated_transcript(['en'])
-                except:
-                    # Try any available transcript
-                    transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
+            # Print available transcripts for debugging
+            available_transcripts = []
+            for transcript in transcript_list:
+                available_transcripts.append(f"{transcript.language} ({'auto' if transcript.is_generated else 'manual'})")
             
+            if available_transcripts:
+                print(f"  Available transcripts: {', '.join(available_transcripts)}")
+            else:
+                print("  No transcripts found for this video")
+                return None
+            
+            # Try to get the best available transcript
+            transcript = None
+            
+            # Try auto-generated English transcript first (most common)
+            try:
+                transcript = transcript_list.find_generated_transcript(['en'])
+                print("  Using auto-generated English transcript")
+            except:
+                # Try manually created English transcript
+                try:
+                    transcript = transcript_list.find_manually_created_transcript(['en'])
+                    print("  Using manually created English transcript")
+                except:
+                    # Try any English variant
+                    try:
+                        transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
+                        print("  Using available English transcript")
+                    except:
+                        print("  Could not find English transcript")
+                        return None
+            
+            if not transcript:
+                print("  No suitable transcript found")
+                return None
+            
+            # Add another delay before fetching
+            time.sleep(random.uniform(0.5, 1.5))
+            
+            # Fetch the transcript data
+            print("  Fetching transcript data...")
             transcript_data = transcript.fetch()
+            
+            if not transcript_data:
+                print("  Transcript data is empty")
+                return None
+            
+            print(f"  Retrieved {len(transcript_data)} transcript segments")
             
             # Combine all text segments
             full_text = []
             for entry in transcript_data:
-                text = entry['text'].strip()
-                if text:
-                    full_text.append(text)
+                if isinstance(entry, dict) and 'text' in entry:
+                    text = entry['text'].strip()
+                    if text:
+                        full_text.append(text)
             
-            return ' '.join(full_text)
+            result = ' '.join(full_text)
+            print(f"  Successfully extracted transcript ({len(result)} characters)")
+            return result
             
         except Exception as e:
-            print(f"Error extracting transcript for {video_id}: {e}")
+            print(f"  Error extracting transcript for {video_id}: {str(e)}")
             return None
     
     def save_transcript(self, transcript, filename):
@@ -203,6 +283,18 @@ class YouTubeTranscriptExtractor:
         
         if output_dir:
             self.output_dir = original_output_dir
+    
+    def test_connectivity(self):
+        """Test if we can connect to YouTube and fetch basic video info."""
+        test_video_id = "BaW_jenozKc"  # A TED talk that should have transcripts
+        try:
+            print("Testing connectivity to YouTube...")
+            transcript_list = YouTubeTranscriptApi.list_transcripts(test_video_id)
+            print("✓ Successfully connected to YouTube transcript API")
+            return True
+        except Exception as e:
+            print(f"✗ Connectivity test failed: {e}")
+            return False
 
 
 def main():
