@@ -27,8 +27,12 @@ def utc_now() -> str:
 
 def validate_output_dir(value: str | Path) -> Path:
     path = Path(value)
-    if not path.exists():
-        raise WriteError(f"Output directory does not exist: {path}")
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except FileExistsError as exc:
+        raise WriteError(f"Output path is not a directory: {path}") from exc
+    except OSError as exc:
+        raise WriteError(f"Could not create output directory {path}: {exc}") from exc
     if not path.is_dir():
         raise WriteError(f"Output path is not a directory: {path}")
     if not os.access(path, os.W_OK):

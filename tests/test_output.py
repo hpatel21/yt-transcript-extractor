@@ -80,11 +80,39 @@ class OutputTests(unittest.TestCase):
             with self.assertRaisesRegex(WriteError, "Could not open directory"):
                 fsync_directory(Path("unused"))
 
-    def test_output_directory_must_exist_and_be_writable(self):
+    def test_missing_nested_output_directory_is_created_and_returned(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_dir = Path(directory) / "missing" / "nested"
+
+            self.assertEqual(validate_output_dir(output_dir), output_dir)
+            self.assertTrue(output_dir.is_dir())
+
+    def test_existing_output_directory_is_returned(self):
         with tempfile.TemporaryDirectory() as directory:
             self.assertEqual(validate_output_dir(directory), Path(directory))
-            with self.assertRaises(WriteError):
-                validate_output_dir(Path(directory) / "missing")
+
+    def test_existing_file_is_rejected_as_output_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "output"
+            output_path.touch()
+
+            with self.assertRaisesRegex(WriteError, rf"Output path is not a directory: {output_path}"):
+                validate_output_dir(output_path)
+
+    def test_output_directory_creation_error_becomes_write_error(self):
+        output_dir = Path("missing") / "nested"
+        error = OSError("permission denied")
+
+        with patch("yt_extract_md.output.Path.mkdir", side_effect=error):
+            with self.assertRaisesRegex(
+                WriteError,
+                rf"Could not create output directory {output_dir}: permission denied",
+            ) as raised:
+                validate_output_dir(output_dir)
+        self.assertIs(raised.exception.__cause__, error)
+
+    def test_non_writable_output_directory_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
             with patch("yt_extract_md.output.os.access", return_value=False), self.assertRaises(WriteError):
                 validate_output_dir(directory)
 

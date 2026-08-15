@@ -25,11 +25,9 @@ The core dependencies are exactly pinned to `youtube-transcript-api==1.2.4`, `yt
 
 ## Commands
 
-The output directory for `extract` and `batch` is mandatory. Create it first; the CLI will not create or silently redirect it.
+The output directory for `extract` and `batch` is mandatory. The CLI creates it automatically, including any missing parent directories.
 
 ```sh
-mkdir -p transcripts
-
 yt-extract-md extract 0l3vUprzNzg --output-dir transcripts
 yt-extract-md extract 'https://www.youtube.com/watch?v=ZAGbis1hfXw' --output-dir transcripts --format txt --no-timestamps
 yt-extract-md extract 'https://youtu.be/hkyS0rLy1Uo' --output-dir transcripts --whisper-fallback
