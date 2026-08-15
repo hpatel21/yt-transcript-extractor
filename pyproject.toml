@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yt-extract-md"
+version = "2.0.0"
+description = "Extract YouTube captions to durable Markdown or text files"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "youtube-transcript-api==1.2.4",
+  "yt-dlp==2026.7.4",
+  "tenacity==9.1.4",
+]
+
+[project.optional-dependencies]
+whisper = ["faster-whisper==1.2.1"]
+
+[project.scripts]
+yt-extract-md = "yt_extract_md.cli:entrypoint"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,2 +1,1 @@
-https://www.youtube.com/watch?v=dQw4w9WgXcQ
-https://www.youtube.com/watch?v=9bZkp7q19f0
+# Add videos with: yt-extract-md enqueue urls.txt URL_OR_ID...
